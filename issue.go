@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -169,144 +170,208 @@ func (x Issues) Swap(i, j int) {
 
 //-sort
 
-func (i *Issue) Params(property customFieldProperties) (url.Values, error) {
+func (i *Issue) params(property customFieldProperties) (url.Values, error) {
 	params := url.Values{
 		"summary": {i.Summary},
 		// "parentIssueId": {strconv.Itoa(i.ParentIssueID)},
 		"description": {i.Description},
 	}
 
-	for _, f := range i.CustomFields {
-		if f.Value == nil {
-			continue
-		}
-
-		//+field name
-		fieldID, err := property.findFieldID(f.Name)
+	for fieldName, value := range i.CustomFields {
+		//+key
+		fieldID, err := property.findFieldID(fieldName)
 		if err != nil {
-			return nil, errors.Wrap(err, fmt.Sprintf("find field id of field name '%s' failed", f.Name))
+			return nil, errors.Wrap(err, fmt.Sprintf("find field id of field name '%s' failed", fieldName))
 		}
-		fieldName := fmt.Sprintf("customField_%d", fieldID)
-		//-field name
+		key := fmt.Sprintf("customField_%d", fieldID)
+		//-key
 
-		var value string
+		fieldType, err := property.findFieldType(fieldName)
+		if err != nil {
+			return nil, err
+		}
 
-		switch f.FieldType {
+		//+add custom fields to params
+		switch fieldType {
+		// valueがstringのケース
 		case CustomFieldTypeText, CustomFieldTypeSentence:
-			v, ok := f.Value.(string)
+			v, ok := value.(string)
 			if !ok {
-				return nil, fmt.Errorf("custom field '%s' value is invalid", f.Name)
+				return nil, fmt.Errorf("custom field '%s' value is invalid", value)
 			}
-			value = v
+			params.Add(key, v)
+
+		// valueがlistItemのケース
 		case CustomFieldTypeSingleList, CustomFieldTypeRadio:
-			v, ok := f.Value.(string)
+			if value == nil {
+				params.Add(key, "")
+				continue
+			}
+
+			v, ok := value.(string)
 			if !ok {
-				return nil, fmt.Errorf("custom field '%s' value is invalid", f.Name)
+				return nil, fmt.Errorf("custom field '%s' value is invalid", fieldName)
 			}
-			itemID, err := property.findItemID(f.Name, v)
+
+			if value == "" {
+				params.Add(key, "")
+				continue
+			}
+
+			itemID, err := property.findItemID(fieldName, v)
 			if err != nil {
-				return nil, fmt.Errorf("find item '%s' in custom field '%s' failed", v, f.Name)
+				return nil, fmt.Errorf("find item '%s' in custom field '%s' failed", v, fieldName)
 			}
-			value = strconv.Itoa(itemID)
+
+			params.Add(key, strconv.Itoa(itemID))
+
+		// valueがlistItemsのケース
 		case CustomFieldTypeMultipleList, CustomFieldTypeCheckbox:
+			vs, ok := value.([]string)
+			if !ok {
+				return nil, fmt.Errorf("custom field '%s' value is invalid", fieldName)
+			}
 
+			itemIDs := make([]string, len(vs))
+			for i, v := range vs {
+				itemID, err := property.findItemID(fieldName, v)
+				if err != nil {
+					return nil, fmt.Errorf("find item '%s' in custom field '%s' failed", v, fieldName)
+				}
+				itemIDs[i] = strconv.Itoa(itemID)
+			}
+			params.Add(key, strings.Join(itemIDs, ","))
 		}
-
-		params.Add(fieldName, value)
+		//-add custom fields to params
 	}
 
 	return params, nil
 }
 
 //+custom field
-type CustomFields []*CustomField
+// value = string or []string or nil
+type CustomFields map[string]interface{}
 
-type CustomField struct {
-	FieldType CustomFieldType `json:"fieldTypeId"`
-	Name      string          `json:"name"`
-	Value     interface{}     // string or []string
-}
-
-func (f *CustomField) String() string {
-	if f.Value == nil {
-		return ""
-	}
-	return fmt.Sprint(f.Value)
-}
-
-func (fs CustomFields) Find(fieldName string) (*CustomField, error) {
-	var f *CustomField
-	var seenCount int
-	for _, _f := range fs {
-		if seenCount > 1 {
-			return nil, errors.New("field name is ambiguous")
-		}
-		if _f.Name == fieldName {
-			f = _f
-			seenCount++
-		}
-	}
-
-	if f == nil {
-		return nil, errors.New("field name is invalid")
-	}
-
-	return f, nil
-}
-
-func (f *CustomField) UnmarshalJSON(data []byte) error {
+func (fs *CustomFields) UnmarshalJSON(data []byte) error {
 	type Raw struct {
-		// ID        int              `json:"id"`
-		FieldType CustomFieldType  `json:"fieldTypeId"`
-		Name      string           `json:"name"`
-		Value     *json.RawMessage `json:"value"` // string or customFieldListItem
+		Name            string           `json:"name"`
+		CustomFieldType CustomFieldType  `json:"fieldTypeId"`
+		Value           *json.RawMessage `json:"value"`
 	}
+	var raws []*Raw
 
-	var raw Raw
-
-	if err := json.Unmarshal(data, &raw); err != nil {
+	err := json.Unmarshal(data, &raws)
+	if err != nil {
 		return err
 	}
 
-	// f.ID = raw.ID
-	f.FieldType = raw.FieldType
-	f.Name = raw.Name
+	//+フィールド名重複確認
+	seen := make(map[string]bool)
 
-	if raw.Value == nil {
-		return nil
+	for _, r := range raws {
+		if seen[r.Name] {
+			return fmt.Errorf("custom field name '%s' is ambiguous", r.Name)
+		}
+	}
+	//-フィールド名重複確認
+
+	_fs := make(CustomFields)
+
+	for _, r := range raws {
+		if r.Value == nil {
+			_fs[r.Name] = nil
+			continue
+		}
+
+		switch r.CustomFieldType {
+		case CustomFieldTypeText, CustomFieldTypeSentence:
+			var v string
+			err = json.Unmarshal(*r.Value, &v)
+			if err != nil {
+				return err
+			}
+			_fs[r.Name] = v
+		case CustomFieldTypeSingleList, CustomFieldTypeRadio:
+			var v struct {
+				ID           int    `json:"id"`
+				Name         string `json:"name"`
+				DisplayOrder int    `json:"displayOrder"`
+			}
+			err = json.Unmarshal(*r.Value, &v)
+			if err != nil {
+				return err
+			}
+			_fs[r.Name] = v.Name
+		case CustomFieldTypeMultipleList, CustomFieldTypeCheckbox:
+			var items []*customFieldListItem
+
+			err = json.Unmarshal(*r.Value, &items)
+			if err != nil {
+				return err
+			}
+
+			vs := make([]string, len(items))
+			for i, item := range items {
+				vs[i] = item.Name
+			}
+			_fs[r.Name] = vs
+		}
 	}
 
-	switch raw.FieldType {
-	case CustomFieldTypeText, CustomFieldTypeSentence:
-		var s string
-		err := json.Unmarshal(*raw.Value, &s)
-		if err != nil {
-			return err
-		}
-		f.Value = s
-	case CustomFieldTypeSingleList, CustomFieldTypeRadio:
-		var i customFieldListItem
-		err := json.Unmarshal(*raw.Value, &i)
-		if err != nil {
-			return err
-		}
-		f.Value = i.Name
-	case CustomFieldTypeMultipleList, CustomFieldTypeCheckbox:
-		var is []*customFieldListItem
-		err := json.Unmarshal(*raw.Value, &is)
-		if err != nil {
-			return err
-		}
-
-		args := make([]string, len(is))
-		for i, it := range is {
-			args[i] = it.Name
-		}
-		f.Value = args
-	}
-
+	*fs = _fs
 	return nil
 }
+
+// func (f *CustomField) UnmarshalJSON(data []byte) error {
+// 	type Raw struct {
+// 		FieldType CustomFieldType  `json:"fieldTypeId"`
+// 		Name      string           `json:"name"`
+// 		Value     *json.RawMessage `json:"value"` // string or customFieldListItem
+// 	}
+
+// 	var raw Raw
+
+// 	if err := json.Unmarshal(data, &raw); err != nil {
+// 		return err
+// 	}
+
+// 	f.Name = raw.Name
+
+// 	if raw.Value == nil {
+// 		return nil
+// 	}
+
+// 	switch raw.FieldType {
+// 	case CustomFieldTypeText, CustomFieldTypeSentence:
+// 		var s string
+// 		err := json.Unmarshal(*raw.Value, &s)
+// 		if err != nil {
+// 			return err
+// 		}
+// 		f.Value = s
+// 	case CustomFieldTypeSingleList, CustomFieldTypeRadio:
+// 		var i customFieldListItem
+// 		err := json.Unmarshal(*raw.Value, &i)
+// 		if err != nil {
+// 			return err
+// 		}
+// 		f.Value = i.Name
+// 	case CustomFieldTypeMultipleList, CustomFieldTypeCheckbox:
+// 		var is []*customFieldListItem
+// 		err := json.Unmarshal(*raw.Value, &is)
+// 		if err != nil {
+// 			return err
+// 		}
+
+// 		args := make([]string, len(is))
+// 		for i, it := range is {
+// 			args[i] = it.Name
+// 		}
+// 		f.Value = args
+// 	}
+
+// 	return nil
+// }
 
 type customFieldListItem struct {
 	ID           int    `json:"id"`
@@ -318,6 +383,27 @@ type customFieldListItem struct {
 
 //+custom field property
 type customFieldProperties []*customFieldProperty
+
+func (ps customFieldProperties) findFieldType(fieldName string) (CustomFieldType, error) {
+	var property *customFieldProperty
+
+	var seenCount int
+	for _, p := range ps {
+		if seenCount > 1 {
+			return 0, fmt.Errorf("field name '%s' is ambiquous", fieldName)
+		}
+		if p.Name == fieldName {
+			property = p
+			seenCount++
+		}
+	}
+
+	if property == nil {
+		return 0, fmt.Errorf("field name '%s' is not found", fieldName)
+	}
+
+	return property.FieldType, nil
+}
 
 func (ps customFieldProperties) findFieldID(fieldName string) (int, error) {
 	var property *customFieldProperty

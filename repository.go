@@ -81,19 +81,19 @@ func NewSearchIssueQuery() SearchIssueQuery {
 	return q
 }
 
-func (q SearchIssueQuery) SetProjectID(id int) SearchIssueQuery {
-	url.Values(q).Add("projectId", strconv.Itoa(id))
-	return q
+func (q SearchIssueQuery) SetProjectID(id int) {
+	url.Values(q).Add("projectId[]", strconv.Itoa(id))
+	return
 }
 
-func (q SearchIssueQuery) SetParentIssueID(id int) SearchIssueQuery {
+func (q SearchIssueQuery) SetIssueID(id int) {
+	url.Values(q).Add("id[]", strconv.Itoa(id))
+	return
+}
+
+func (q SearchIssueQuery) SetParentIssueID(id int) {
 	url.Values(q).Add("parentIssueId[]", strconv.Itoa(id))
-	return q
-}
-
-func (q SearchIssueQuery) SetCustomField(fieldID int, value string) SearchIssueQuery {
-	url.Values(q).Add(fmt.Sprintf("customField_%d", fieldID), value)
-	return q
+	return
 }
 
 func (q SearchIssueQuery) SetSort(how string) SearchIssueQuery {
@@ -111,9 +111,7 @@ func (repo *Repository) UpdateIssue(issue *Issue) error {
 		return errors.Wrap(err, "get custom field property failed")
 	}
 
-	log.Printf("property: %v", property)
-
-	params, err := issue.Params(property)
+	params, err := issue.params(property)
 	if err != nil {
 		return errors.Wrap(err, "create params failed")
 	}

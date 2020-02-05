@@ -43,7 +43,6 @@ func newClient(subdomain, apiKey string, httpClient *http.Client) *client {
 
 func (c *client) get(path string, query url.Values) ([]byte, error) {
 	url := c.newURL(path, query)
-
 	req, err := http.NewRequest("GET", url.String(), nil)
 	if err != nil {
 		return nil, err
