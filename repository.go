@@ -147,7 +147,7 @@ func (repo *Repository) getCustomFieldProperty(projectID int) (customFieldProper
 	return ps, nil
 }
 
-func (repo *Repository) getIssueStatusItems(projectID int) ([]*IssueStatusItem, error) {
+func (repo *Repository) getIssueStatusItems(projectID int) ([]*issueStatusItem, error) {
 	url := fmt.Sprintf("api/v2/projects/%d/statuses", projectID)
 
 	data, err := repo.client.get(url, nil)
@@ -155,7 +155,7 @@ func (repo *Repository) getIssueStatusItems(projectID int) ([]*IssueStatusItem, 
 		return nil, err
 	}
 
-	var items []*IssueStatusItem
+	var items []*issueStatusItem
 	err = json.Unmarshal(data, &items)
 	if err != nil {
 		return nil, err

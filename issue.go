@@ -59,6 +59,80 @@ type Issue struct {
 	} `json:"comment"`
 }
 
+func (i *Issue) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		ID             int             `json:"id,"`
+		ProjectID      int             `json:"projectId"`
+		IssueKey       string          `json:"issueKey"`
+		KeyID          int             `json:"keyId"`
+		IssueType      IssueType       `json:"issueType"`
+		Summary        string          `json:"summary"`
+		Description    string          `json:"description"` // 詳細
+		Resolution     Resolution      `json:"resolution"`
+		Priority       Priority        `json:"priority"`
+		Status         issueStatusItem `json:"status"` // status
+		Assignee       Assignee        `json:"assignee"`
+		Categories     []*Category     `json:"category"`
+		Versions       []*Version      `json:"versions"`
+		Milestones     []*Version      `json:"milestone"`
+		StartDate      time.Time       `json:"startDate"`
+		DueDate        time.Time       `json:"dueDate"`
+		EstimatedHours int             `json:"estimatedHours"`
+		ActualHours    int             `json:"actualHours"`
+		ParentIssueID  int             `json:"parentIssueId"`
+		CreatedUser    *User           `json:"createdUser"`
+		Created        time.Time       `json:"created"`
+		UpdatedUser    *User           `json:"updatedUser"`
+		Updated        time.Time       `json:"updated"`
+		CustomFields   CustomFields    `json:"customFields"`
+		Attachments    []*Attachment   `json:"attachments"`
+		SharedFiles    []*SharedFile   `json:"sharedFiles"`
+		Stars          []*Star         `json:"stars"`
+		Comment        struct {
+			ID      int    `json:"id"`
+			Content string `json:"content"`
+		} `json:"comment"`
+	}
+
+	err := json.Unmarshal(data, &raw)
+	if err != nil {
+		return err
+	}
+
+	*i = Issue{
+		ID:             raw.ID,
+		ProjectID:      raw.ProjectID,
+		IssueKey:       raw.IssueKey,
+		KeyID:          raw.KeyID,
+		IssueType:      raw.IssueType,
+		Summary:        raw.Summary,
+		Description:    raw.Description,
+		Resolution:     raw.Resolution,
+		Priority:       raw.Priority,
+		Status:         raw.Status.Name,
+		Assignee:       raw.Assignee,
+		Categories:     raw.Categories,
+		Versions:       raw.Versions,
+		Milestones:     raw.Milestones,
+		StartDate:      raw.StartDate,
+		DueDate:        raw.DueDate,
+		EstimatedHours: raw.EstimatedHours,
+		ActualHours:    raw.ActualHours,
+		ParentIssueID:  raw.ParentIssueID,
+		CreatedUser:    raw.CreatedUser,
+		Created:        raw.Created,
+		UpdatedUser:    raw.UpdatedUser,
+		Updated:        raw.Updated,
+		CustomFields:   raw.CustomFields,
+		Attachments:    raw.Attachments,
+		SharedFiles:    raw.SharedFiles,
+		Stars:          raw.Stars,
+		Comment:        raw.Comment,
+	}
+
+	return nil
+}
+
 type IssueType struct {
 	ID           int    `json:"id,omitempty"`
 	ProjectID    int    `json:"projectId,omitempty"`
@@ -147,7 +221,7 @@ type Star struct {
 type Issues []*Issue
 
 // IssueStatusItem
-type IssueStatusItem struct {
+type issueStatusItem struct {
 	ID           int    `json:"id,omitempty"`
 	ProjectID    int    `json:"projectId,omitempty"`
 	Name         string `json:"name,omitempty"`
@@ -170,7 +244,7 @@ func (x Issues) Swap(i, j int) {
 
 //-sort
 
-func (i *Issue) params(property customFieldProperties, issueStatusItems []*IssueStatusItem) (url.Values, error) {
+func (i *Issue) params(property customFieldProperties, issueStatusItems []*issueStatusItem) (url.Values, error) {
 
 	//+issueStatus
 	var issueStatus string
