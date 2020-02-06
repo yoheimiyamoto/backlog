@@ -30,7 +30,7 @@ func (w *Webhook) UnmarshalJSON(data []byte) error {
 		Description    string                `json:"description"` // 詳細
 		Resolution     Resolution            `json:"resolution"`
 		Priority       Priority              `json:"priority"`
-		Status         IssueStatus           `json:"status"`
+		Status         IssueStatusItem       `json:"status"`
 		Assignee       Assignee              `json:"assignee"`
 		Categories     []*Category           `json:"category"`
 		Versions       []*Version            `json:"versions"`
@@ -81,7 +81,7 @@ func (w *Webhook) UnmarshalJSON(data []byte) error {
 		Description:    raw.Issue.Description,
 		Resolution:     raw.Issue.Resolution,
 		Priority:       raw.Issue.Priority,
-		Status:         raw.Issue.Status,
+		Status:         raw.Issue.Status.Name,
 		Assignee:       raw.Issue.Assignee,
 		Categories:     raw.Issue.Categories,
 		Versions:       raw.Issue.Versions,

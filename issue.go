@@ -35,7 +35,7 @@ type Issue struct {
 	Description    string        `json:"description"` // 詳細
 	Resolution     Resolution    `json:"resolution"`
 	Priority       Priority      `json:"priority"`
-	Status         IssueStatus   `json:"status"`
+	Status         string        `json:"status"`
 	Assignee       Assignee      `json:"assignee"`
 	Categories     []*Category   `json:"category"`
 	Versions       []*Version    `json:"versions"`
@@ -76,15 +76,6 @@ type Resolution struct {
 type Priority struct {
 	ID   *int    `json:"id,omitempty"`
 	Name *string `json:"name,omitempty"`
-}
-
-// Status represents
-type IssueStatus struct {
-	ID           int    `json:"id,omitempty"`
-	ProjectID    int    `json:"projectId,omitempty"`
-	Name         string `json:"name,omitempty"`
-	Color        string `json:"color,omitempty"`
-	DisplayOrder int    `json:"displayOrder,omitempty"`
 }
 
 // Assignee represents
@@ -155,6 +146,15 @@ type Star struct {
 
 type Issues []*Issue
 
+// IssueStatusItem
+type IssueStatusItem struct {
+	ID           int    `json:"id,omitempty"`
+	ProjectID    int    `json:"projectId,omitempty"`
+	Name         string `json:"name,omitempty"`
+	Color        string `json:"color,omitempty"`
+	DisplayOrder int    `json:"displayOrder,omitempty"`
+}
+
 //+sort
 func (x Issues) Len() int {
 	return len(x)
@@ -170,11 +170,22 @@ func (x Issues) Swap(i, j int) {
 
 //-sort
 
-func (i *Issue) params(property customFieldProperties) (url.Values, error) {
+func (i *Issue) params(property customFieldProperties, issueStatusItems []*IssueStatusItem) (url.Values, error) {
+
+	//+issueStatus
+	var issueStatus string
+	for _, item := range issueStatusItems {
+		if item.Name == i.Status {
+			issueStatus = strconv.Itoa(item.ID)
+		}
+	}
+	//-issueStatus
+
 	params := url.Values{
 		"summary": {i.Summary},
 		// "parentIssueId": {strconv.Itoa(i.ParentIssueID)},
 		"description": {i.Description},
+		"statusId":    {issueStatus},
 	}
 
 	for fieldName, value := range i.CustomFields {

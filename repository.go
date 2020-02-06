@@ -111,7 +111,12 @@ func (repo *Repository) UpdateIssue(issue *Issue) error {
 		return errors.Wrap(err, "get custom field property failed")
 	}
 
-	params, err := issue.params(property)
+	issueStatusItems, err := repo.getIssueStatusItems(issue.ProjectID)
+	if err != nil {
+		return errors.Wrap(err, "get issue status items failed")
+	}
+
+	params, err := issue.params(property, issueStatusItems)
 	if err != nil {
 		return errors.Wrap(err, "create params failed")
 	}
@@ -140,4 +145,21 @@ func (repo *Repository) getCustomFieldProperty(projectID int) (customFieldProper
 	}
 
 	return ps, nil
+}
+
+func (repo *Repository) getIssueStatusItems(projectID int) ([]*IssueStatusItem, error) {
+	url := fmt.Sprintf("api/v2/projects/%d/statuses", projectID)
+
+	data, err := repo.client.get(url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var items []*IssueStatusItem
+	err = json.Unmarshal(data, &items)
+	if err != nil {
+		return nil, err
+	}
+
+	return items, nil
 }
