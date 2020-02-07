@@ -432,7 +432,7 @@ func (fs *CustomFields) UnmarshalJSON(data []byte) error {
 			if err != nil {
 				return err
 			}
-			_fs[r.Name] = RadioCustomField(item.Name)
+			customField = RadioCustomField(item.Name)
 		case CustomFieldTypeCheckbox:
 			var items []*customFieldListItem
 
@@ -445,11 +445,9 @@ func (fs *CustomFields) UnmarshalJSON(data []byte) error {
 			for i, item := range items {
 				vs[i] = item.Name
 			}
-
-			_fs[r.Name] = CheckboxCustomField(vs)
+			customField = CheckboxCustomField(vs)
 		case CustomFieldTypeMultipleList:
 			var items []*customFieldListItem
-
 			err = json.Unmarshal(*r.Value, &items)
 			if err != nil {
 				return err
@@ -460,7 +458,7 @@ func (fs *CustomFields) UnmarshalJSON(data []byte) error {
 				vs[i] = item.Name
 			}
 
-			_fs[r.Name] = MultipleListCustomField(vs)
+			customField = MultipleListCustomField(vs)
 		}
 
 		_fs[r.Name] = customField

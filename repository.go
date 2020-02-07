@@ -48,7 +48,7 @@ func (repo *Repository) FindIssue(id int) (*Issue, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	log.Println(string(data))
 	var issue Issue
 	err = json.Unmarshal(data, &issue)
 	if err != nil {
