@@ -14,61 +14,50 @@ type Webhook struct {
 
 func (w *Webhook) UnmarshalJSON(data []byte) error {
 
-	type WebhookCustomField struct {
-		FieldType CustomFieldType `json:"fieldTypeId"`
-		Name      string          `json:"field"` // jsonのフィールド名がなぜかここだけ 'name' ではなくて、 'field' になっている糞仕様
-		Value     interface{}     `json:"value"` // string or []string
-	}
-
-	type WebhookIssue struct {
-		ID             int                   `json:"id"`
-		ProjectID      int                   `json:"projectId"`
-		IssueKey       string                `json:"issueKey"`
-		KeyID          int                   `json:"keyId"`
-		IssueType      IssueType             `json:"issueType"`
-		Summary        string                `json:"summary"`
-		Description    string                `json:"description"` // 詳細
-		Resolution     Resolution            `json:"resolution"`
-		Priority       Priority              `json:"priority"`
-		Status         issueStatusItem       `json:"status"`
-		Assignee       Assignee              `json:"assignee"`
-		Categories     []*Category           `json:"category"`
-		Versions       []*Version            `json:"versions"`
-		Milestones     []*Version            `json:"milestone"`
-		StartDate      time.Time             `json:"startDate"`
-		DueDate        time.Time             `json:"dueDate"`
-		EstimatedHours int                   `json:"estimatedHours"`
-		ActualHours    int                   `json:"actualHours"`
-		ParentIssueID  int                   `json:"parentIssueId"`
-		CreatedUser    *User                 `json:"createdUser"`
-		Created        time.Time             `json:"created"`
-		UpdatedUser    *User                 `json:"updatedUser"`
-		Updated        time.Time             `json:"updated"`
-		CustomFields   []*WebhookCustomField `json:"customFields"`
-		Attachments    []*Attachment         `json:"attachments"`
-		SharedFiles    []*SharedFile         `json:"sharedFiles"`
-		Stars          []*Star               `json:"stars"`
-		Comment        struct {
+	type RawIssue struct {
+		ID             int             `json:"id"`
+		ProjectID      int             `json:"projectId"`
+		IssueKey       string          `json:"issueKey"`
+		KeyID          int             `json:"keyId"`
+		IssueType      IssueType       `json:"issueType"`
+		Summary        string          `json:"summary"`
+		Description    string          `json:"description"` // 詳細
+		Resolution     Resolution      `json:"resolution"`
+		Priority       Priority        `json:"priority"`
+		Status         issueStatusItem `json:"status"`
+		Assignee       Assignee        `json:"assignee"`
+		Categories     []*Category     `json:"category"`
+		Versions       []*Version      `json:"versions"`
+		Milestones     []*Version      `json:"milestone"`
+		StartDate      time.Time       `json:"startDate"`
+		DueDate        time.Time       `json:"dueDate"`
+		EstimatedHours int             `json:"estimatedHours"`
+		ActualHours    int             `json:"actualHours"`
+		ParentIssueID  int             `json:"parentIssueId"`
+		CreatedUser    *User           `json:"createdUser"`
+		Created        time.Time       `json:"created"`
+		UpdatedUser    *User           `json:"updatedUser"`
+		Updated        time.Time       `json:"updated"`
+		// CustomFields   []*RawCustomField `json:"customFields"` // customFieldsを取得できない
+		Attachments []*Attachment `json:"attachments"`
+		SharedFiles []*SharedFile `json:"sharedFiles"`
+		Stars       []*Star       `json:"stars"`
+		Comment     struct {
 			ID      int    `json:"id"`
 			Content string `json:"content"`
 		} `json:"comment"`
 	}
 
 	raw := struct {
-		ID      int           `json:"id"`
-		Project *Project      `json:"project"`
-		Issue   *WebhookIssue `json:"content"`
-		Created time.Time     `json:"created"`
+		ID      int       `json:"id"`
+		Project *Project  `json:"project"`
+		Issue   *RawIssue `json:"content"`
+		Created time.Time `json:"created"`
 	}{}
 
 	err := json.Unmarshal(data, &raw)
 	if err != nil {
 		return err
-	}
-
-	customFields := make(CustomFields)
-	for _, issue := range raw.Issue.CustomFields {
-		customFields[issue.Name] = issue.Value
 	}
 
 	issue := Issue{
@@ -95,11 +84,11 @@ func (w *Webhook) UnmarshalJSON(data []byte) error {
 		Created:        raw.Issue.Created,
 		UpdatedUser:    raw.Issue.UpdatedUser,
 		Updated:        raw.Issue.Updated,
-		CustomFields:   customFields,
-		Attachments:    raw.Issue.Attachments,
-		SharedFiles:    raw.Issue.SharedFiles,
-		Stars:          raw.Issue.Stars,
-		Comment:        raw.Issue.Comment,
+		// CustomFields:   customFields,
+		Attachments: raw.Issue.Attachments,
+		SharedFiles: raw.Issue.SharedFiles,
+		Stars:       raw.Issue.Stars,
+		Comment:     raw.Issue.Comment,
 	}
 
 	w.ID = raw.ID

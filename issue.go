@@ -3,6 +3,7 @@ package backlog
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/url"
 	"strconv"
 	"strings"
@@ -262,7 +263,7 @@ func (i *Issue) params(property customFieldProperties, issueStatusItems []*issue
 		"statusId":    {issueStatus},
 	}
 
-	for fieldName, value := range i.CustomFields {
+	for fieldName, customField := range i.CustomFields {
 		//+key
 		fieldID, err := property.findFieldID(fieldName)
 		if err != nil {
@@ -271,54 +272,37 @@ func (i *Issue) params(property customFieldProperties, issueStatusItems []*issue
 		key := fmt.Sprintf("customField_%d", fieldID)
 		//-key
 
-		fieldType, err := property.findFieldType(fieldName)
-		if err != nil {
-			return nil, err
+		if customField == nil {
+			params.Add(key, "")
+			continue
 		}
 
 		//+add custom fields to params
-		switch fieldType {
+		switch f := customField.(type) {
 		// valueがstringのケース
-		case CustomFieldTypeText, CustomFieldTypeSentence:
-			v, ok := value.(string)
-			if !ok {
-				return nil, fmt.Errorf("custom field '%s' value is invalid", value)
-			}
-			params.Add(key, v)
-
+		case TextCustomField, SentenceCustomField:
+			params.Add(key, fmt.Sprint(f))
 		// valueがlistItemのケース
-		case CustomFieldTypeSingleList, CustomFieldTypeRadio:
-			if value == nil {
-				params.Add(key, "")
-				continue
-			}
-
-			v, ok := value.(string)
-			if !ok {
-				return nil, fmt.Errorf("custom field '%s' value is invalid", fieldName)
-			}
-
-			if value == "" {
-				params.Add(key, "")
-				continue
-			}
-
-			itemID, err := property.findItemID(fieldName, v)
+		case SingleListCustomField, RadioCustomField:
+			itemID, err := property.findItemID(fieldName, fmt.Sprint(f))
 			if err != nil {
-				return nil, fmt.Errorf("find item '%s' in custom field '%s' failed", v, fieldName)
+				return nil, fmt.Errorf("find item '%s' in custom field '%s' failed", f, fieldName)
 			}
-
 			params.Add(key, strconv.Itoa(itemID))
-
 		// valueがlistItemsのケース
-		case CustomFieldTypeMultipleList, CustomFieldTypeCheckbox:
-			vs, ok := value.([]string)
-			if !ok {
-				return nil, fmt.Errorf("custom field '%s' value is invalid", fieldName)
+		case MultipleListCustomField:
+			itemIDs := make([]string, len(f))
+			for i, v := range f {
+				itemID, err := property.findItemID(fieldName, v)
+				if err != nil {
+					return nil, fmt.Errorf("find item '%s' in custom field '%s' failed", v, fieldName)
+				}
+				itemIDs[i] = strconv.Itoa(itemID)
 			}
-
-			itemIDs := make([]string, len(vs))
-			for i, v := range vs {
+			params.Add(key, strings.Join(itemIDs, ","))
+		case CheckboxCustomField:
+			itemIDs := make([]string, len(f))
+			for i, v := range f {
 				itemID, err := property.findItemID(fieldName, v)
 				if err != nil {
 					return nil, fmt.Errorf("find item '%s' in custom field '%s' failed", v, fieldName)
@@ -335,7 +319,55 @@ func (i *Issue) params(property customFieldProperties, issueStatusItems []*issue
 
 //+custom field
 // value = string or []string or nil
-type CustomFields map[string]interface{}
+type CustomFields map[string]CustomField
+
+type CustomField interface {
+	String() string
+}
+
+type TextCustomField string
+
+func (f TextCustomField) String() string {
+	return string(f)
+}
+
+type SentenceCustomField string
+
+func (f SentenceCustomField) String() string {
+	return string(f)
+}
+
+type NumberCustomField int
+
+func (f NumberCustomField) String() string {
+	return string(f)
+}
+
+type DateCustomField time.Time
+
+type SingleListCustomField string
+
+func (f SingleListCustomField) String() string {
+	return string(f)
+}
+
+type MultipleListCustomField []string
+
+func (f MultipleListCustomField) String() string {
+	return strings.Join(f, ",")
+}
+
+type CheckboxCustomField []string
+
+func (f CheckboxCustomField) String() string {
+	return strings.Join(f, ",")
+}
+
+type RadioCustomField string
+
+func (f RadioCustomField) String() string {
+	return string(f)
+}
 
 func (fs *CustomFields) UnmarshalJSON(data []byte) error {
 	type Raw struct {
@@ -363,31 +395,45 @@ func (fs *CustomFields) UnmarshalJSON(data []byte) error {
 	_fs := make(CustomFields)
 
 	for _, r := range raws {
+
 		if r.Value == nil {
 			_fs[r.Name] = nil
 			continue
 		}
 
+		var customField CustomField
+
 		switch r.CustomFieldType {
-		case CustomFieldTypeText, CustomFieldTypeSentence:
-			var v string
-			err = json.Unmarshal(*r.Value, &v)
+		case CustomFieldTypeText:
+			var _f TextCustomField
+			err = json.Unmarshal(*r.Value, &_f)
 			if err != nil {
 				return err
 			}
-			_fs[r.Name] = v
-		case CustomFieldTypeSingleList, CustomFieldTypeRadio:
-			var v struct {
-				ID           int    `json:"id"`
-				Name         string `json:"name"`
-				DisplayOrder int    `json:"displayOrder"`
-			}
-			err = json.Unmarshal(*r.Value, &v)
+			customField = _f
+		case CustomFieldTypeSentence:
+			var _f SentenceCustomField
+			err = json.Unmarshal(*r.Value, &_f)
 			if err != nil {
 				return err
 			}
-			_fs[r.Name] = v.Name
-		case CustomFieldTypeMultipleList, CustomFieldTypeCheckbox:
+			customField = _f
+		case CustomFieldTypeSingleList:
+			var item customFieldListItem
+			err = json.Unmarshal(*r.Value, &item)
+			if err != nil {
+				log.Println(string(*r.Value))
+				return err
+			}
+			customField = SingleListCustomField(item.Name)
+		case CustomFieldTypeRadio:
+			var item customFieldListItem
+			err = json.Unmarshal(*r.Value, &item)
+			if err != nil {
+				return err
+			}
+			_fs[r.Name] = RadioCustomField(item.Name)
+		case CustomFieldTypeCheckbox:
 			var items []*customFieldListItem
 
 			err = json.Unmarshal(*r.Value, &items)
@@ -399,8 +445,25 @@ func (fs *CustomFields) UnmarshalJSON(data []byte) error {
 			for i, item := range items {
 				vs[i] = item.Name
 			}
-			_fs[r.Name] = vs
+
+			_fs[r.Name] = CheckboxCustomField(vs)
+		case CustomFieldTypeMultipleList:
+			var items []*customFieldListItem
+
+			err = json.Unmarshal(*r.Value, &items)
+			if err != nil {
+				return err
+			}
+
+			vs := make([]string, len(items))
+			for i, item := range items {
+				vs[i] = item.Name
+			}
+
+			_fs[r.Name] = MultipleListCustomField(vs)
 		}
+
+		_fs[r.Name] = customField
 	}
 
 	*fs = _fs
