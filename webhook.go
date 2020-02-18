@@ -6,10 +6,11 @@ import (
 )
 
 type Webhook struct {
-	ID      int       `json:"id"`
-	Project *Project  `json:"project"`
-	Issue   *Issue    `json:"content"`
-	Created time.Time `json:"created"`
+	ID          int       `json:"id"`
+	Project     *Project  `json:"project"`
+	Issue       *Issue    `json:"content"`
+	CreatedUser *User     `json:"createdUser"`
+	Created     time.Time `json:"created"`
 }
 
 func (w *Webhook) UnmarshalJSON(data []byte) error {
@@ -49,10 +50,11 @@ func (w *Webhook) UnmarshalJSON(data []byte) error {
 	}
 
 	raw := struct {
-		ID      int       `json:"id"`
-		Project *Project  `json:"project"`
-		Issue   *RawIssue `json:"content"`
-		Created time.Time `json:"created"`
+		ID          int       `json:"id"`
+		Project     *Project  `json:"project"`
+		Issue       *RawIssue `json:"content"`
+		CreatedUser *User     `json:"createdUser"`
+		Created     time.Time `json:"created"`
 	}{}
 
 	err := json.Unmarshal(data, &raw)
@@ -94,6 +96,7 @@ func (w *Webhook) UnmarshalJSON(data []byte) error {
 	w.ID = raw.ID
 	w.Project = raw.Project
 	w.Issue = &issue
+	w.CreatedUser = raw.CreatedUser
 	w.Created = raw.Created
 
 	return nil
