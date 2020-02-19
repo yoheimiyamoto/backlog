@@ -41,8 +41,8 @@ type Issue struct {
 	Categories     []*Category   `json:"category"`
 	Versions       []*Version    `json:"versions"`
 	Milestones     []*Version    `json:"milestone"`
-	StartDate      time.Time     `json:"startDate"`
-	DueDate        time.Time     `json:"dueDate"`
+	StartDate      Date          `json:"startDate"`
+	DueDate        Date          `json:"dueDate"`
 	EstimatedHours int           `json:"estimatedHours"`
 	ActualHours    int           `json:"actualHours"`
 	ParentIssueID  int           `json:"parentIssueId"`
@@ -58,6 +58,27 @@ type Issue struct {
 		ID      int    `json:"id"`
 		Content string `json:"content"`
 	} `json:"comment"`
+}
+
+type Date time.Time
+
+func (d *Date) UnmarshalJSON(data []byte) error {
+	var raw string
+	err := json.Unmarshal(data, &raw)
+	if err != nil {
+		return err
+	}
+	t, err := time.Parse("2006-01-02", raw)
+	if err != nil {
+		return err
+	}
+	*d = Date(t)
+
+	return nil
+}
+
+func (d *Date) String() string {
+	return time.Time(*d).Format("2006-01-02")
 }
 
 func (i *Issue) UnmarshalJSON(data []byte) error {
@@ -76,8 +97,8 @@ func (i *Issue) UnmarshalJSON(data []byte) error {
 		Categories     []*Category     `json:"category"`
 		Versions       []*Version      `json:"versions"`
 		Milestones     []*Version      `json:"milestone"`
-		StartDate      time.Time       `json:"startDate"`
-		DueDate        time.Time       `json:"dueDate"`
+		StartDate      Date            `json:"startDate"`
+		DueDate        Date            `json:"dueDate"`
 		EstimatedHours int             `json:"estimatedHours"`
 		ActualHours    int             `json:"actualHours"`
 		ParentIssueID  int             `json:"parentIssueId"`

@@ -30,8 +30,8 @@ func (w *Webhook) UnmarshalJSON(data []byte) error {
 		Categories     []*Category     `json:"category"`
 		Versions       []*Version      `json:"versions"`
 		Milestones     []*Version      `json:"milestone"`
-		StartDate      time.Time       `json:"startDate"`
-		DueDate        time.Time       `json:"dueDate"`
+		StartDate      Date            `json:"startDate"`
+		DueDate        Date            `json:"dueDate"`
 		EstimatedHours int             `json:"estimatedHours"`
 		ActualHours    int             `json:"actualHours"`
 		ParentIssueID  int             `json:"parentIssueId"`
