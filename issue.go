@@ -64,10 +64,16 @@ type Date time.Time
 
 func (d *Date) UnmarshalJSON(data []byte) error {
 	var raw string
+
 	err := json.Unmarshal(data, &raw)
 	if err != nil {
 		return err
 	}
+
+	if raw == "" {
+		return nil
+	}
+
 	t, err := time.Parse("2006-01-02", raw)
 	if err != nil {
 		return err
