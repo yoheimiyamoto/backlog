@@ -41,8 +41,8 @@ type Issue struct {
 	Categories     []*Category   `json:"category"`
 	Versions       []*Version    `json:"versions"`
 	Milestones     []*Version    `json:"milestone"`
-	StartDate      Date          `json:"startDate"`
-	DueDate        Date          `json:"dueDate"`
+	StartDate      time.Time     `json:"startDate"`
+	DueDate        time.Time     `json:"dueDate"`
 	EstimatedHours int           `json:"estimatedHours"`
 	ActualHours    int           `json:"actualHours"`
 	ParentIssueID  int           `json:"parentIssueId"`
@@ -142,8 +142,8 @@ func (i *Issue) UnmarshalJSON(data []byte) error {
 		Categories:     raw.Categories,
 		Versions:       raw.Versions,
 		Milestones:     raw.Milestones,
-		StartDate:      raw.StartDate,
-		DueDate:        raw.DueDate,
+		StartDate:      time.Time(raw.StartDate),
+		DueDate:        time.Time(raw.DueDate),
 		EstimatedHours: raw.EstimatedHours,
 		ActualHours:    raw.ActualHours,
 		ParentIssueID:  raw.ParentIssueID,

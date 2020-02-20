@@ -82,7 +82,7 @@ func (c *client) do(req *http.Request) ([]byte, error) {
 		return nil, errors.New(string(body))
 	}
 
-	log.Printf("boyd: %s", string(body))
+	log.Printf("body: %s", string(body))
 
 	return body, nil
 }
