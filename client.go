@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -81,8 +80,6 @@ func (c *client) do(req *http.Request) ([]byte, error) {
 	if res.StatusCode != 200 {
 		return nil, errors.New(string(body))
 	}
-
-	log.Printf("body: %s", string(body))
 
 	return body, nil
 }
