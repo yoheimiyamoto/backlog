@@ -3,7 +3,6 @@ package backlog
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/url"
 	"strconv"
 
@@ -48,7 +47,7 @@ func (repo *Repository) FindIssue(id int) (*Issue, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Println(string(data))
+
 	var issue Issue
 	err = json.Unmarshal(data, &issue)
 	if err != nil {
@@ -120,7 +119,7 @@ func (repo *Repository) UpdateIssue(issue *Issue) error {
 	if err != nil {
 		return errors.Wrap(err, "create params failed")
 	}
-	log.Printf("params: %v", params)
+	// log.Printf("params: %v", params)
 
 	_, err = repo.client.put(url, params)
 	if err != nil {
