@@ -57,6 +57,23 @@ func (repo *Repository) FindIssue(id int) (*Issue, error) {
 	return &issue, nil
 }
 
+func (repo *Repository) FindIssueWithStringID(id string) (*Issue, error) {
+	url := fmt.Sprintf("api/v2/issues/%s", id)
+
+	data, err := repo.client.get(url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var issue Issue
+	err = json.Unmarshal(data, &issue)
+	if err != nil {
+		return nil, err
+	}
+
+	return &issue, nil
+}
+
 func (repo *Repository) SearchIssues(q SearchIssueQuery) ([]*Issue, error) {
 	data, err := repo.client.get("api/v2/issues", url.Values(q))
 	if err != nil {
